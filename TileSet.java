@@ -60,6 +60,10 @@ public class TileSet {
         }
     }
 
+    public void clear() {
+        tiles.clear();
+    }
+
     public static Tile getSelected() {
         return selected;
     }

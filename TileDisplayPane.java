@@ -2,6 +2,7 @@ import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -21,7 +22,7 @@ import java.util.List;
 
 public class TileDisplayPane extends BorderPane {
 
-    public static int PANEL_WIDTH = 40 + Tile.LARGE_TILE_SIZE;
+    public static int PANEL_WIDTH = 45 + Tile.LARGE_TILE_SIZE;
     private static int SPACING = 20;
 
     private Button addTile;
@@ -121,11 +122,23 @@ public class TileDisplayPane extends BorderPane {
         setMinHeight(PANEL_WIDTH);
         setPrefSize(PANEL_WIDTH, PANEL_WIDTH * 2);
         setTop(buttonHolder);
-        setCenter(tileDisplay);
+
+        ScrollPane sp = new ScrollPane(tileDisplay);
+        sp.setFitToWidth(true);
+        setCenter(sp);
         setBottom(previewPane);
         setStyle("-fx-background-color: #eaeaea;" +
                  "-fx-border-color: #000000;" +
                  "-fx-border-width: 2px;");
+    }
+
+    public void addTile(Tile tile) {
+        if (tile != null) {
+            if (!tileSet.containsTile(tile)) {
+                tileSet.addTile(tile);
+            }
+        }
+        updateTileSet();
     }
 
     public void addTile(File file) {
@@ -136,6 +149,10 @@ public class TileDisplayPane extends BorderPane {
             }
         }
         updateTileSet();
+    }
+
+    public void clearTiles() {
+        tileSet.clear();
     }
 
     private void updateTileSet() {

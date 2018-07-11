@@ -1,17 +1,31 @@
 
-import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.SnapshotParameters;
+import javafx.scene.control.Button;
+import javafx.scene.control.ListView;
+import javafx.scene.image.ImageView;
+import javafx.scene.image.WritableImage;
 import javafx.scene.input.*;
 import javafx.scene.layout.GridPane;
 
+import java.util.Comparator;
+import java.util.Map;
+
 
 public class TileGridPane extends GridPane {
+
+
+    private static int PANEL_WIDTH = 40 + Tile.LARGE_TILE_SIZE;
+    private ListView<String> layerView;
+    private Map<String, TileGridPane> layers;
+    private Button addLayer;
 
     private Tile[][] grid;
     private int height;
     private int width;
     private boolean isDragged;
+
     public TileGridPane(int height, int width) {
         this.height = height;
         this.width = width;
@@ -35,6 +49,7 @@ public class TileGridPane extends GridPane {
                 Tile tile = Tile.getEmptyTile();
 
                 addEventFilter(MouseEvent.DRAG_DETECTED , (MouseEvent event) -> {
+                    System.out.println("Drag ON " + tile.getTileName());
                     if (!event.isMiddleButtonDown()) {
                         event.consume();
                     }
@@ -62,7 +77,6 @@ public class TileGridPane extends GridPane {
                         }
 
                 });
-
                 grid[i][j] = tile;
                 add(tile, i, j);
             }
@@ -82,6 +96,14 @@ public class TileGridPane extends GridPane {
         grid = new Tile[width][height];
         getChildren().clear();
         drawGrid();
+    }
+
+    public WritableImage snapshot(int height, int width) {
+        ImageView imageView = new ImageView(this.snapshot(new SnapshotParameters(),null));
+        imageView.setPreserveRatio(true);
+        imageView.setFitWidth(width);
+        imageView.setFitHeight(height);
+        return imageView.snapshot(null, null);
     }
 
     public Tile tileAtPos(int x, int y) {
