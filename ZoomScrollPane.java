@@ -73,4 +73,11 @@ public class ZoomScrollPane extends ScrollPane {
         this.setVvalue((valY + adjustment.getY()) / (updatedInnerBounds.getHeight() - viewportBounds.getHeight()));
     }
 
+
+    public void updateNode(Node target) {
+        this.target = target;
+        this.zoomNode = new Group(target);
+        setContent(outerNode(zoomNode));
+        updateScale();
+    }
 }

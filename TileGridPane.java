@@ -24,13 +24,12 @@ public class TileGridPane extends GridPane {
     private Tile[][] grid;
     private int height;
     private int width;
-    private boolean isDragged;
+    private boolean shown;
 
     public TileGridPane(int height, int width) {
         this.height = height;
         this.width = width;
         grid = new Tile[width][height];
-        isDragged = false;
         drawGrid();
     }
 
@@ -70,7 +69,6 @@ public class TileGridPane extends GridPane {
                         if (event.isPrimaryButtonDown() && TileSet.getSelected() != null) {
                             System.out.println("CLICK ON " + tile.getTileName());
                             tile.updateTile(TileSet.getSelected());
-                            isDragged = true;
                         }
                         if (event.isSecondaryButtonDown()) {
                             tile.updateTile(Tile.getEmptyTile());

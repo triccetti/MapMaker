@@ -55,8 +55,6 @@ public class Main extends Application {
     private TextField widthInput;
     private TileDisplayPane tileDisplayPane;
     private ZoomScrollPane zoomPane;
-    //private LayerManager layerManager;
-    private static TileGridPane currentTileGridPane;
 
 
     private static ListView<String> layerView;
@@ -67,7 +65,7 @@ public class Main extends Application {
     private Stage stage;
 
     public static void main(String[] args) {
-        layers = new HashMap<>();
+        layers = new LinkedHashMap<>();
         layerView = new ListView<>();
         addLayer = new Button("Add Layer");
 
@@ -90,14 +88,13 @@ public class Main extends Application {
         tileDisplayPane = new TileDisplayPane();
         BorderPane gridPane = new BorderPane();
 
-        TileGridPane tileGridPane = new TileGridPane(gridHeight, gridWidth);
 
-        currentTileGridPane = tileGridPane;
 
-        layers.put("layer 1", tileGridPane);
+        layers.put("layer 1", new TileGridPane(gridHeight, gridWidth));
+        layerView.getSelectionModel().select("layer 1");
 
         // Zoom grid controller.
-        zoomPane = new ZoomScrollPane(currentTileGridPane);
+        zoomPane = new ZoomScrollPane(getSelectedLayer());
         gridPane.setTop(setupButtons());
         gridPane.setCenter(zoomPane);
 
@@ -108,19 +105,6 @@ public class Main extends Application {
         buttonHolder.setHgap(5);
         buttonHolder.setVgap(5);
         buttonHolder.setPadding(new Insets(5, 5, 15, 5));
-
-        addLayer.setGraphic(new ImageView(new Image("images/add.png")));
-        addLayer.setOnAction(e -> {
-            layers.put("layer " +(layers.size() + 1), new TileGridPane(gridHeight, gridWidth));
-            updateLayerView();
-        });
-
-        layerView.setOnMouseClicked(e -> {
-            System.out.println("clicked on " + layerView.getSelectionModel().getSelectedItem());
-            currentTileGridPane = layers.get(layerView.getSelectionModel().getSelectedItem());
-            currentTileGridPane.drawGrid();
-            zoomPane = new ZoomScrollPane(currentTileGridPane);
-        });
 
         updateLayerView();
         layerHolder.setTop(buttonHolder);
@@ -133,6 +117,19 @@ public class Main extends Application {
                 "-fx-border-color: #000000;" +
                 "-fx-border-width: 2px;");
 
+
+        addLayer.setGraphic(new ImageView(new Image("images/add.png")));
+        addLayer.setOnAction(e -> {
+            layers.put("layer " + (layers.size() + 1), new TileGridPane(gridHeight, gridWidth));
+            updateLayerView();
+        });
+
+        layerView.setOnMouseClicked(e -> {
+            System.out.println("Switching to " + layerView.getSelectionModel().getSelectedItem());
+            TileGridPane curr = layers.get(layerView.getSelectionModel().getSelectedItem());
+            zoomPane.updateNode(curr);
+
+        });
 
         root.setTop(setupMenu());
         root.setCenter(gridPane);
@@ -156,7 +153,6 @@ public class Main extends Application {
         MenuItem newMenu = new MenuItem("New");
         newMenu.setOnAction((ActionEvent e) -> {
             System.out.println("New file created.");
-            currentTileGridPane.clearGrid();
             tileDisplayPane.clearTiles();
             currentFile = null;
             stage.setTitle(TITLE + " [new file]");
@@ -174,6 +170,7 @@ public class Main extends Application {
                 loadState(currentFile);
             }
         });
+
         MenuItem saveAs = new MenuItem("Save As");
         saveAs.setAccelerator( new KeyCodeCombination(KeyCode.S, KeyCombination.ALT_DOWN, KeyCombination.CONTROL_DOWN));
         saveAs.setOnAction((ActionEvent e) -> {
@@ -203,15 +200,23 @@ public class Main extends Application {
             stage.setTitle(TITLE + " [" + currentFile.getName() + "] last save: " + dtf.format(now));
         });
 
-        MenuItem export = new MenuItem("Export as image");
-        export.setOnAction((ActionEvent e) -> {
+        MenuItem exportImage = new MenuItem("Export as image");
+        exportImage.setOnAction((ActionEvent e) -> {
             fileChooser.setSelectedExtensionFilter(pngFilter);
             File exportFile = fileChooser.showSaveDialog(null);
             currentFile = exportFile;
             exportState(currentFile);
 
         });
-        file.getItems().addAll(newMenu, open, save, saveAs, export);
+
+        MenuItem saveTileSheet = new MenuItem("Export tile sheet");
+        saveTileSheet.setOnAction((ActionEvent e) -> {
+            fileChooser.setSelectedExtensionFilter(pngFilter);
+            tileDisplayPane.saveAsTileSheet(fileChooser);
+        });
+
+        file.getItems().addAll(newMenu, open, save, saveAs, exportImage, saveTileSheet);
+
 
         final Menu menu2 = new Menu("Options");
         final Menu menu3 = new Menu("Help");
@@ -221,97 +226,6 @@ public class Main extends Application {
         return menuBar;
     }
 
-    private void loadState(File loadFile) {
-        try (BufferedReader reader = new BufferedReader(new FileReader(loadFile))) {
-
-            String line = reader.readLine();
-            String[] firstLine = line.split("\\s");
-            tileSizeInput.setText(firstLine[0]);
-            heightInput.setText(firstLine[1]);
-            widthInput.setText(firstLine[2]);
-            currentTileGridPane.updateSize(Integer.parseInt(heightInput.getText()), Integer.parseInt(widthInput.getText()));
-
-            while((line = reader.readLine()) != null && !line.isEmpty()) {
-                String filePath = line.split("\\s")[2];
-                filePath = filePath.substring(6);
-                System.out.println(filePath);
-                tileDisplayPane.addTile(new File(filePath));
-            }
-
-            currentTileGridPane.drawGrid();
-
-            int height = Integer.parseInt(firstLine[1]);
-            int width = Integer.parseInt(firstLine[2]);
-            int row = 0;
-            int col = 0;
-            ArrayList<Tile> tileSet = tileDisplayPane.getTileSet();
-            while((line = reader.readLine()) != null) {
-                String[] tiles = (line.replaceAll("\\s","")).split(",");
-
-                for(int i = 0; i < tiles.length; i++) {
-                    int index = Integer.parseInt(tiles[i].trim());
-                    if(index >= 0) {
-                        //tileGridPane.add(tileSet.get(index), i, height);
-                        System.out.println(index);
-                        System.out.println(tiles[i]);
-                        currentTileGridPane.tileAtPos(row, i).updateTile(tileSet.get(index));
-                    }
-                }
-                row++;
-            }
-            System.out.println("end of file");
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void saveState(File saveToFile) {
-        PrintWriter fw = null;
-
-        try {
-            fw = new PrintWriter(saveToFile.getPath());
-            BufferedWriter bw = new BufferedWriter(fw);
-            bw.append(tileSizeInput.getText() + "\t" + heightInput.getText() + "\t" + widthInput.getText());
-            bw.newLine();
-            ArrayList<Tile> tileSet = tileDisplayPane.getTileSet();
-            /* Save tileset */
-            for (Tile tile: tileSet) {
-
-                bw.append(tileSet.indexOf(tile) + "\t" + tile.toString());
-                bw.newLine();
-            }
-            bw.newLine();
-
-            /* Save grid */
-            int width = currentTileGridPane.getGridWidth();
-            int height = currentTileGridPane.getGridHeight();
-
-            for(int i = 0; i < width; i++) {
-                for (int j = 0; j < height; j++) {
-                    Tile tile = currentTileGridPane.tileAtPos(i, j);
-                    bw.append(tileSet.indexOf(tile) + ", ");
-
-                }
-                bw.newLine();
-            }
-            bw.close();
-            fw.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void exportState(File exportToFile) {
-        try {
-            //Pad the capture area
-            WritableImage writableImage = currentTileGridPane.snapshot(gridHeight * tileSize, gridWidth * tileSize);
-            RenderedImage renderedImage = SwingFXUtils.fromFXImage(writableImage, null);
-            //Write the snapshot to the chosen file
-            ImageIO.write(renderedImage, "png", exportToFile);
-        } catch (IOException ex) { ex.printStackTrace(); }
-    }
-
     private Node setupButtons() {
 
         Button applyChanges = new Button("Apply");
@@ -319,18 +233,21 @@ public class Main extends Application {
 
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Confirmation Change");
-        alert.setHeaderText("Applying these changes will erase all grid data.");
+        alert.setHeaderText("Applying these changes will erase all grid and grid layer data.");
         alert.setContentText("Do you wish to continue?");
         applyChanges.setOnAction((event) -> {
             Optional<ButtonType> result = alert.showAndWait();
             if(result.get() == ButtonType.OK){
-                currentTileGridPane.updateSize(Integer.parseInt(heightInput.getText()), Integer.parseInt(widthInput.getText()));
-                currentTileGridPane.drawGrid();
+                for (TileGridPane t: layers.values()) {
+                    t.updateSize(Integer.parseInt(heightInput.getText()), Integer.parseInt(widthInput.getText()));
+                    t.drawGrid();
+                }
             }
         });
 
         clearGridChanges.setOnAction((event) -> {
-            currentTileGridPane.clearGrid();
+            TileGridPane temp = getSelectedLayer();
+            temp.clearGrid();
         });
 
         tileSizeInput.setPrefWidth(TEXT_BOX_WIDTH);
@@ -355,9 +272,142 @@ public class Main extends Application {
         return buttonHolder;
     }
 
+    /**
+     * Loads the state of a given file.
+     * The file must be a mmap file made by this program.
+     *
+     * @param loadFile the file to load.
+     */
+    private void loadState(File loadFile) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(loadFile))) {
+
+            String line = reader.readLine();
+            String[] firstLine = line.split("\\s");
+            tileSizeInput.setText(firstLine[0]);
+            heightInput.setText(firstLine[1]);
+            widthInput.setText(firstLine[2]);
+
+            while((line = reader.readLine()) != null && !line.isEmpty()) {
+                String filePath = line.split("\\s")[2];
+                filePath = filePath.substring(6);
+                System.out.println(filePath);
+                tileDisplayPane.addTile(new File(filePath));
+            }
+
+            ArrayList<Tile> tileSet = tileDisplayPane.getTileSet();
+            int height = Integer.parseInt(firstLine[1]);
+            int width = Integer.parseInt(firstLine[2]);
+            TileGridPane temp = null;
+
+            int row = 0;
+            while((line = reader.readLine()) != null) {
+                if(line.contains("layer")) {
+                    temp = new TileGridPane(height, width);
+                    layers.put(line.trim(), temp);
+                    row = 0;
+                } else if(temp != null){
+                    String[] tiles = (line.replaceAll("\\s", "")).split(",");
+                    for (int i = 0; i < tiles.length; i++) {
+                        int index = Integer.parseInt(tiles[i].trim());
+                        if (index >= 0) {
+                            temp.tileAtPos(row, i).updateTile(tileSet.get(index));
+                        }
+                    }
+                    row++;
+                }
+
+            }
+            updateLayerView();
+            TileGridPane curr = layers.get(layerView.getSelectionModel().getSelectedItem());
+            zoomPane.updateNode(curr);
+
+            System.out.println("Loaded " + loadFile.getName());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Saves all the layers, images and grid information to the save file.
+     *
+     * @param saveToFile the file currently opened.
+     */
+    private void saveState(File saveToFile) {
+        PrintWriter fw = null;
+
+        try {
+            fw = new PrintWriter(saveToFile.getPath());
+            BufferedWriter bw = new BufferedWriter(fw);
+            bw.append(tileSizeInput.getText() + "\t" + heightInput.getText() + "\t" + widthInput.getText());
+            bw.newLine();
+
+            ArrayList<Tile> tileSet = tileDisplayPane.getTileSet();
+            /* Save tileset */
+            for (Tile tile: tileSet) {
+                bw.append(tileSet.indexOf(tile) + "\t" + tile.toString());
+                bw.newLine();
+            }
+
+            bw.newLine();
+
+            for(String layer: layers.keySet()) {
+
+                bw.append(layer);
+                bw.newLine();
+
+                TileGridPane t = layers.get(layer);
+
+                /* Save grid */
+                int width = t.getGridWidth();
+                int height = t.getGridHeight();
+
+                for(int i = 0; i < width; i++) {
+                    for (int j = 0; j < height; j++) {
+                        Tile tile = t.tileAtPos(i, j);
+                        bw.append(tileSet.indexOf(tile) + ", ");
+                    }
+                    bw.newLine();
+                }
+            }
+
+            bw.close();
+            fw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Exports the state of the current selected grid to a PNG file.
+     *
+     * @param exportToFile the file to export the image to.
+     */
+    private void exportState(File exportToFile) {
+        try {
+            //Pad the capture area
+            TileGridPane temp = getSelectedLayer();
+            WritableImage writableImage = temp.snapshot(gridHeight * tileSize, gridWidth * tileSize);
+            RenderedImage renderedImage = SwingFXUtils.fromFXImage(writableImage, null);
+            //Write the snapshot to the chosen file
+            ImageIO.write(renderedImage, "png", exportToFile);
+        } catch (IOException ex) { ex.printStackTrace(); }
+    }
+
+    /**
+     * Updates the layer display, should be called when layers are added or removed.
+     */
     private void updateLayerView() {
         ObservableList<String> titles = FXCollections.observableArrayList(layers.keySet());
         layerView.setItems(titles);
+    }
+
+    /**
+     * Returns the selected TileGridPane.
+     *
+     * @return selected grid pane.
+     */
+    private TileGridPane getSelectedLayer() {
+        return layers.get(layerView.getSelectionModel().getSelectedItem());
     }
 }
 

@@ -25,6 +25,7 @@ public class Tile extends ImageView {
 
     private Tile() {
         imagePath = "/images/empty.png";
+
         image = new Image(imagePath, TILE_SIZE, TILE_SIZE, false, false );
         setImage(image);
         tile = new ImageView(image);
@@ -76,7 +77,7 @@ public class Tile extends ImageView {
 
     public double getHeight() {
         return height;
-    }
+    } 
 
     public double getWidth() {
         return width;

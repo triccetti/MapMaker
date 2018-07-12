@@ -1,11 +1,14 @@
+import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
@@ -16,7 +19,10 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 
+import javax.imageio.ImageIO;
+import java.awt.image.RenderedImage;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -191,5 +197,31 @@ public class TileDisplayPane extends BorderPane {
 
     public ArrayList<Tile> getTileSet() {
         return tileSet.getTiles();
+    }
+
+    public String saveAsTileSheet(FileChooser fileChooser) {
+        File saveFile = fileChooser.showSaveDialog(null);
+        String fileName = saveFile.getPath();
+
+        ArrayList<Tile> tiles = getTileSet();
+        GridPane tileSheet = new GridPane();
+        int row = 0;
+        int col = 0;
+        for(Tile t : tiles) {
+            tileSheet.add(t, col, row);
+            col++;
+            if(col >= 12) {
+                row++;
+                col = 0;
+            }
+        }
+        WritableImage image = tileSheet.snapshot(new SnapshotParameters(), null);
+        RenderedImage renderedImage = SwingFXUtils.fromFXImage(image, null);
+        try {
+            ImageIO.write(renderedImage, "png", saveFile);
+        } catch (IOException e) {
+            System.out.println("Could not save tile sheet.");
+        }
+        return fileName;
     }
 }
