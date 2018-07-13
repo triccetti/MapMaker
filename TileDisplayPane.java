@@ -199,29 +199,32 @@ public class TileDisplayPane extends BorderPane {
         return tileSet.getTiles();
     }
 
-    public String saveAsTileSheet(FileChooser fileChooser) {
-        File saveFile = fileChooser.showSaveDialog(null);
-        String fileName = saveFile.getPath();
+    public String saveAsTileSheet(File saveFile, int tileSize) {
 
         ArrayList<Tile> tiles = getTileSet();
         GridPane tileSheet = new GridPane();
         int row = 0;
         int col = 0;
+
         for(Tile t : tiles) {
-            tileSheet.add(t, col, row);
+            tileSheet.add(new Tile(t), col, row);
             col++;
-            if(col >= 12) {
+            if(col >= 8) {
                 row++;
                 col = 0;
             }
         }
-        WritableImage image = tileSheet.snapshot(new SnapshotParameters(), null);
+
+        ImageView imageView = new ImageView(tileSheet.snapshot(new SnapshotParameters(),null));
+        imageView.setPreserveRatio(true);
+        imageView.setFitWidth(tileSize * 8);
+        WritableImage image = imageView.snapshot(new SnapshotParameters(), null);
         RenderedImage renderedImage = SwingFXUtils.fromFXImage(image, null);
         try {
             ImageIO.write(renderedImage, "png", saveFile);
         } catch (IOException e) {
             System.out.println("Could not save tile sheet.");
         }
-        return fileName;
+        return saveFile.getPath();
     }
 }

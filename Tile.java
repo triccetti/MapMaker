@@ -6,7 +6,6 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.paint.Color;
 
 import java.io.File;
-import java.io.Serializable;
 
 public class Tile extends ImageView {
 
@@ -49,6 +48,10 @@ public class Tile extends ImageView {
         init();
     }
 
+    public Tile(Tile other) {
+        updateTile(other);
+    }
+
     private void init() {
         setOnMouseEntered((MouseEvent t) -> {
             setCursor(Cursor.HAND);
@@ -77,10 +80,14 @@ public class Tile extends ImageView {
 
     public double getHeight() {
         return height;
-    } 
+    }
 
     public double getWidth() {
         return width;
+    }
+
+    public String getFileName() {
+        return imagePath;
     }
 
     public String getTileName() {
