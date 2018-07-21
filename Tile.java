@@ -48,6 +48,19 @@ public class Tile extends ImageView {
         init();
     }
 
+    public Tile (Image image, String imagePath) {
+        this.imagePath = imagePath;
+        this.image = image;
+        setImage(image);
+        tile = new ImageView(image);
+
+        tileName = imagePath.substring(0, imagePath.indexOf('.'));
+        this.height = tile.getImage().getHeight();
+        this.width = tile.getImage().getWidth();
+        emptyTile = false;
+        init();
+    }
+
     public Tile(Tile other) {
         updateTile(other);
     }

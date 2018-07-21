@@ -2,6 +2,7 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
@@ -12,14 +13,18 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.*;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 
 import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.File;
 import java.io.IOException;
@@ -215,10 +220,18 @@ public class TileDisplayPane extends BorderPane {
             }
         }
 
-        ImageView imageView = new ImageView(tileSheet.snapshot(new SnapshotParameters(),null));
+        SnapshotParameters sp = new SnapshotParameters();
+        sp.setFill(Color.TRANSPARENT);
+        ImageView imageView = new ImageView(tileSheet.snapshot(sp,null));
         imageView.setPreserveRatio(true);
-        imageView.setFitWidth(tileSize * 8);
-        WritableImage image = imageView.snapshot(new SnapshotParameters(), null);
+        if(tiles.size() < 8) {
+            imageView.setFitWidth(tiles.size() * tileSize);
+        } else {
+            imageView.setFitWidth(8 * tileSize);
+        }
+        // imageView.setFitHeight(row * tileSize);
+        WritableImage image = imageView.snapshot(sp, null);
+
         RenderedImage renderedImage = SwingFXUtils.fromFXImage(image, null);
         try {
             ImageIO.write(renderedImage, "png", saveFile);
@@ -226,5 +239,40 @@ public class TileDisplayPane extends BorderPane {
             System.out.println("Could not save tile sheet.");
         }
         return saveFile.getPath();
+    }
+
+    public void loadTileSet(File tileSheetFile, int tileSize, int numTiles) {
+        ImageView tileSheet = new ImageView(new Image(tileSheetFile.toURI().toString()));
+        int tileSheetHeight = (int) tileSheet.getImage().getHeight() / tileSize;
+        int tileSheetWidth = (int) tileSheet.getImage().getWidth() / tileSize;
+        System.out.println(tileSheetHeight + " " + tileSheetWidth);
+
+        int countedTiles = 0;
+        for(int i = 0; i < tileSheetHeight; i++) {
+            for(int j = 0; j < tileSheetWidth; j++) {
+                try {
+                    File temp = File.createTempFile("tileSheet" , ".png");
+
+                    SnapshotParameters sp = new SnapshotParameters();
+                    sp.setViewport(new Rectangle2D(j * tileSize, i * tileSize , tileSize,  tileSize));
+                    sp.setFill(Color.TRANSPARENT);
+                    ImageView imageView = new ImageView(tileSheet.snapshot(sp, null));
+                    imageView.setFitHeight(tileSize);
+                    imageView.setFitWidth(tileSize);
+                    WritableImage image = imageView.snapshot(sp, null);
+                    ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", temp);
+                    addTile(new Tile(temp));
+                    countedTiles++;
+                    if(countedTiles > numTiles) {
+                        break;
+                    }
+
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }
     }
 }

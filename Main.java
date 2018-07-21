@@ -168,12 +168,18 @@ public class Main extends Application {
         open.setAccelerator( new KeyCodeCombination(KeyCode.O, KeyCombination.ALT_DOWN, KeyCombination.CONTROL_DOWN));
         open.setOnAction((ActionEvent e) -> {
             fileChooser.setSelectedExtensionFilter(mapFilter);
+            fileChooser.setTitle("Load Map");
             File openedFile = fileChooser.showOpenDialog(null);
-            if(openedFile != null) {
+
+            fileChooser.setSelectedExtensionFilter(pngFilter);
+            fileChooser.setTitle("Load Tile Sheet");
+            File tileSheetFile = fileChooser.showOpenDialog(null);
+
+            if(openedFile != null && tileSheetFile != null) {
                 // YAY
                 stage.setTitle(TITLE + " [" + openedFile.getName() + "]");
                 currentFile = openedFile;
-                loadState(currentFile);
+                loadState(currentFile, tileSheetFile);
             }
         });
 
@@ -202,22 +208,22 @@ public class Main extends Application {
 
         });
 
-        MenuItem exportMap = new MenuItem("Export Map and Tile Sheet");
-        exportMap.setOnAction((ActionEvent e) -> {
-            fileChooser.setSelectedExtensionFilter(pngFilter);
-            File tileSheetFile = fileChooser.showSaveDialog(null);
-            tileSheet = tileDisplayPane.saveAsTileSheet(tileSheetFile, tileSize);
-            saveMap(fileChooser);
-        });
+    //    MenuItem exportMap = new MenuItem("Export Map and Tile Sheet");
+    //    exportMap.setOnAction((ActionEvent e) -> {
+    //        fileChooser.setSelectedExtensionFilter(pngFilter);
+    //        File tileSheetFile = fileChooser.showSaveDialog(null);
+    //        tileSheet = tileDisplayPane.saveAsTileSheet(tileSheetFile, tileSize);
+    //        saveMap(fileChooser);
+    //    });
 
-        MenuItem saveTileSheet = new MenuItem("Export Tile Sheet");
-        saveTileSheet.setOnAction((ActionEvent e) -> {
-            fileChooser.setSelectedExtensionFilter(pngFilter);
-            File tileSheetFile = fileChooser.showSaveDialog(null);
-            tileSheet = tileDisplayPane.saveAsTileSheet(tileSheetFile, tileSize);
-        });
+    //    MenuItem saveTileSheet = new MenuItem("Export Tile Sheet");
+    //    saveTileSheet.setOnAction((ActionEvent e) -> {
+    //        fileChooser.setSelectedExtensionFilter(pngFilter);
+    //        File tileSheetFile = fileChooser.showSaveDialog(null);
+    //        tileSheet = tileDisplayPane.saveAsTileSheet(tileSheetFile, tileSize);
+    //    });
 
-        file.getItems().addAll(newMenu, open, save, saveAs, exportMap, exportImage, saveTileSheet);
+        file.getItems().addAll(newMenu, open, save, saveAs, exportImage);
 
 
         final Menu menu2 = new Menu("Options");
@@ -258,6 +264,9 @@ public class Main extends Application {
             Optional<ButtonType> result = alert.showAndWait();
             if(result.get() == ButtonType.OK){
                 for (TileGridPane t: layers.values()) {
+                    tileSize = Integer.parseInt(tileSizeInput.getText());
+                    gridHeight = Integer.parseInt(heightInput.getText());
+                    gridWidth = Integer.parseInt(widthInput.getText());
                     t.updateSize(Integer.parseInt(heightInput.getText()), Integer.parseInt(widthInput.getText()));
                     t.drawGrid();
                 }
@@ -296,61 +305,52 @@ public class Main extends Application {
      * The file must be a mmap file made by this program.
      *
      * @param loadFile the file to load.
+     * @param tileSheetFile the file to load tile sheet from.
      */
-    private void loadState(File loadFile) {
+    private void loadState(File loadFile, File tileSheetFile) {
         try (BufferedReader reader = new BufferedReader(new FileReader(loadFile))) {
-
+            System.out.println("loading " + loadFile.getName());
             String line = reader.readLine();
             String[] firstLine = line.split("\\s");
+            tileSize = Integer.parseInt(firstLine[0]);
+            gridHeight = Integer.parseInt(firstLine[1]);
+            gridWidth = Integer.parseInt(firstLine[2]);
+            int numTiles = Integer.parseInt(firstLine[3]);
             tileSizeInput.setText(firstLine[0]);
             heightInput.setText(firstLine[1]);
             widthInput.setText(firstLine[2]);
 
+            System.out.println(tileSize + " " + gridHeight + " " + gridWidth);
+            tileDisplayPane.loadTileSet(tileSheetFile, tileSize, numTiles);
+            ArrayList<Tile> tileSet = tileDisplayPane.getTileSet();
+
+            layers.clear();
             line = reader.readLine();
-            System.out.println(line);
-            if(Boolean.parseBoolean(line)) {
-                //TODO: load from tilesheet
-                line = reader.readLine();
-                Image tiles = new Image(line);
-
-                ImageView tileSheet = new ImageView(tiles);
-                SnapshotParameters snap = new SnapshotParameters();
-                tileSheet.snapshot(snap, null);
-            } else {
-                while ((line = reader.readLine()) != null && !line.isEmpty()) {
-                    String filePath = line.split("\\s")[2];
-                    filePath = filePath.substring(6);
-                    System.out.println(filePath);
-                    tileDisplayPane.addTile(new File(filePath));
-                }
-
-                ArrayList<Tile> tileSet = tileDisplayPane.getTileSet();
-                int height = Integer.parseInt(firstLine[1]);
-                int width = Integer.parseInt(firstLine[2]);
-                TileGridPane temp = null;
-
-                int row = 0;
-                while((line = reader.readLine()) != null) {
-                    if(line.contains("layer")) {
-                        temp = new TileGridPane(height, width);
-                        layers.put(line.trim(), temp);
-                        row = 0;
-                    } else if(temp != null){
-                        String[] tiles = (line.replaceAll("\\s", "")).split(",");
-                        for (int i = 0; i < tiles.length; i++) {
-                            int index = Integer.parseInt(tiles[i].trim());
-                            if (index >= 0) {
-                                temp.tileAtPos(row, i).updateTile(tileSet.get(index));
+            while(line != null) {
+                while (line.contains("layer")) {
+                    TileGridPane tempPane = new TileGridPane(gridHeight, gridWidth);
+                    char c;
+                    for (int i = 0; i < gridHeight; i++) {
+                        line = reader.readLine();
+                        int index = 0;
+                        for (int j = 0; j < gridWidth; j++) {
+                            int x = line.charAt(j + index) - '0';
+                            int y = line.charAt(j + index + 1) - '0';
+                            index += 2;
+                            if (x != ('*' - '0')) {
+                                int tile = 8 * x + y;
+                                tempPane.tileAtPos(i, j).updateTile(tileSet.get(tile));
                             }
                         }
-                        row++;
                     }
+                    layers.put("layer " + (layers.size() + 1), tempPane);
                 }
-                updateLayerView();
-                TileGridPane curr = layers.get(layerView.getSelectionModel().getSelectedItem());
-                zoomPane.updateNode(curr);
+                line = reader.readLine();
             }
-            System.out.println("Loaded " + loadFile.getName());
+            layerView.getSelectionModel().select("layer 1");
+            TileGridPane curr = layers.get(layerView.getSelectionModel().getSelectedItem());
+            zoomPane.updateNode(curr);
+            updateLayerView();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -367,99 +367,46 @@ public class Main extends Application {
         try {
             fw = new PrintWriter(saveToFile.getPath());
             BufferedWriter bw = new BufferedWriter(fw);
-            bw.append(tileSizeInput.getText() + "\t" + heightInput.getText() + "\t" + widthInput.getText());
+            ArrayList<Tile> tileSet = tileDisplayPane.getTileSet();
+
+            bw.append(tileSizeInput.getText() + "\t" + heightInput.getText()
+                    + "\t" + widthInput.getText() + "\t" + tileSet.size());
             bw.newLine();
 
-            ArrayList<Tile> tileSet = tileDisplayPane.getTileSet();
-            boolean savedWithTileSheet = false;
-            if(tileSheet.isEmpty()) {
-                Alert alert =
-                        new Alert(Alert.AlertType.WARNING,
-                                "You have not saved your tile sheet, each image file will be saved " +
-                                        "individually if you do not wish to export your tiles to a tile sheet. " +
-                                        "Click next to export your tile sheet.",
-                                ButtonType.NEXT,
-                                ButtonType.CANCEL);
-                alert.setTitle("Missing Tile9heet");
-                Optional<ButtonType> result = alert.showAndWait();
-
-                if (result.get() == ButtonType.NEXT) {
-                    final FileChooser fileChooser = new FileChooser();
-                    fileChooser.getExtensionFilters().addAll(mapFilter, pngFilter);
-                    fileChooser.setSelectedExtensionFilter(pngFilter);
-                    File tileSheetFile = fileChooser.showSaveDialog(null);
-                    if(tileSheetFile != null) {
-                        tileSheet = tileDisplayPane.saveAsTileSheet(tileSheetFile, tileSize);
-                        savedWithTileSheet = true;
-                        bw.append("" + savedWithTileSheet);
-                        bw.newLine();
-                        bw.append(tileSheet);
-                        bw.newLine();
-                    }
-                }
-            } else {
-                savedWithTileSheet = true;
-                bw.append("" + savedWithTileSheet);
-                bw.newLine();
-                bw.append(tileSheet);
-                bw.newLine();
+            String path = saveToFile.getPath();
+            path = path.substring(0, path.indexOf(".mmap")) ;
+            File tileSheetFile = new File(path + "_ts.png");
+            int trys = 1;
+            while(!tileSheetFile.createNewFile()) {
+                tileSheetFile = new File(path + "_ts_" + trys + ".png");
+                trys++;
             }
 
-            if(!savedWithTileSheet) {
-                bw.append("" + savedWithTileSheet);
-                bw.newLine();
-                for (Tile tile: tileSet) {
-                    bw.append(tileSet.indexOf(tile) + "\t" + tile.toString());
-                    bw.newLine();
-                }
+            tileSheet = tileDisplayPane.saveAsTileSheet(tileSheetFile, tileSize);
 
+            for(String layer: layers.keySet()) {
+
+                bw.append(layer);
                 bw.newLine();
 
-                for(String layer: layers.keySet()) {
+                TileGridPane t = layers.get(layer);
 
-                    bw.append(layer);
-                    bw.newLine();
+                /* Save grid */
+                int width = t.getGridWidth();
+                int height = t.getGridHeight();
 
-                    TileGridPane t = layers.get(layer);
-
-                    /* Save grid */
-                    int width = t.getGridWidth();
-                    int height = t.getGridHeight();
-
-                    for(int i = 0; i < width; i++) {
-                        for (int j = 0; j < height; j++) {
-                            Tile tile = t.tileAtPos(i, j);
-                            bw.append(tileSet.indexOf(tile) + ", ");
+                for(int i = 0; i < height; i++) {
+                    for (int j = 0; j < width; j++) {
+                        Tile tile = t.tileAtPos(i, j);
+                        if((tileSet.indexOf(tile) % 8) < 0) {
+                            bw.append("**,");
+                        } else {
+                            bw.append((tileSet.indexOf(tile) / 8) + "" + (tileSet.indexOf(tile) % 8) + ",");
                         }
-                        bw.newLine();
                     }
-                }
-
-            } else {
-                bw.newLine();
-
-                for(String layer: layers.keySet()) {
-
-                    bw.append(layer);
                     bw.newLine();
-
-                    TileGridPane t = layers.get(layer);
-
-                    /* Save grid */
-                    int width = t.getGridWidth();
-                    int height = t.getGridHeight();
-
-                    for(int i = 0; i < width; i++) {
-                        for (int j = 0; j < height; j++) {
-                            Tile tile = t.tileAtPos(i, j);
-                            bw.append((tileSet.indexOf(tile) / 8) + " " + (tileSet.indexOf(tile) % 8) + ", ");
-                        }
-                        bw.newLine();
-                    }
                 }
             }
-
-
 
             bw.close();
             fw.close();
@@ -476,11 +423,12 @@ public class Main extends Application {
     private void exportState(File exportToFile) {
         try {
             //Pad the capture area
-            TileGridPane temp = getSelectedLayer();
-            WritableImage writableImage = temp.snapshot(gridHeight * tileSize, gridWidth * tileSize);
-            RenderedImage renderedImage = SwingFXUtils.fromFXImage(writableImage, null);
-            //Write the snapshot to the chosen file
-            ImageIO.write(renderedImage, "png", exportToFile);
+            for(TileGridPane t : layers.values()) {
+                WritableImage writableImage = t.snapshot(gridHeight * tileSize, gridWidth * tileSize);
+                RenderedImage renderedImage = SwingFXUtils.fromFXImage(writableImage, null);
+                //Write the snapshot to the chosen file
+                ImageIO.write(renderedImage, "png", exportToFile);
+            }
         } catch (IOException ex) { ex.printStackTrace(); }
     }
 

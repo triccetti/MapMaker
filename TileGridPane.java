@@ -8,6 +8,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.*;
 import javafx.scene.layout.GridPane;
+import javafx.scene.paint.Color;
 
 import java.util.Comparator;
 import java.util.Map;
@@ -97,11 +98,15 @@ public class TileGridPane extends GridPane {
     }
 
     public WritableImage snapshot(int height, int width) {
-        ImageView imageView = new ImageView(this.snapshot(new SnapshotParameters(),null));
+
+        SnapshotParameters sp = new SnapshotParameters();
+        sp.setFill(Color.TRANSPARENT);
+        ImageView imageView = new ImageView(this.snapshot(sp,null));
         imageView.setPreserveRatio(true);
         imageView.setFitWidth(width);
         imageView.setFitHeight(height);
-        return imageView.snapshot(null, null);
+        return imageView.snapshot(sp, null);
+
     }
 
     public Tile tileAtPos(int x, int y) {
